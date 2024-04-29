@@ -14,5 +14,5 @@ Projet du Fabrikarium 2024 du HumanLab Saint-Pierre à Palavas les Flots.
 
 * Projet FSR/M5Stick: <https://www.instructables.com/3D-Print-Bed-Leveling-Tool-Using-M5StickC/>
 * Site ImageConverter: <http://rinkydinkelectronics.com/_t_doimageconverter565.php>
-
+* Doc des FSR linéaires: <https://www.ohmite.com/assets/docs/res_fsr.pdf>
  
