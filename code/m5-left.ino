@@ -15,7 +15,7 @@
  * 
 */
 
-#include <M5StickCPlus.h>
+#include "M5StickCPlus2.h"
 #include <EEPROM.h>
 #include "OneButton.h"
 #include "thumbs-down.h"
@@ -25,40 +25,40 @@
 // http://rinkydinkelectronics.com/_t_doimageconverter565.php
 
 #define EEPROM_SIZE 1
+bool isActive = true;
+
 int ledPin = G10;
-int pressure = 0;   //the var that goes between 0-127 from FSR reading
-int setpoint = 20;  //to be updated by EEPROM
+int buzzerPin = 33;
+int currentPressureLevel = 0;
+int minimumRequiredPressureLevel = 20;
 float errorThreshold = 6.0; //printbed is considered leveled if error goes below this (ideally 5.0-8.0)
 
 int shiftX = 10;
 int shiftY = 10;
 
 //Object initialization
-OneButton btnA(G37, true);
-OneButton btnB(G39, true);
+OneButton mainButton(G37, true);
+OneButton rightButton(G39, true);
 
 void setup() {
   M5.begin();
   Serial.begin(115200);       //Initialize Serial
   pinMode(ledPin, OUTPUT);    //Set up LED
+  pinMode(buzzerPin, OUTPUT);
   digitalWrite (ledPin, HIGH); // turn off the LED
 
   M5.Lcd.setRotation(0);
   M5.Lcd.fillScreen(BLACK);
 
-  btnA.attachClick(btnAClick);  //BtnA handle
-  btnA.setDebounceMs(40);
-  btnB.attachClick(btnBClick);  //BtnB handle
-  btnB.setDebounceMs(25);
+  mainButton.attachClick(mainButtonClick);
+  mainButton.setDebounceMs(40);
+  rightButton.attachClick(rightButtonClick);
+  rightButton.setDebounceMs(25);
   
   M5.Lcd.drawRect(shiftX+5, 12, 21, 133, 0x7bef);  //show frame for progressbar
   getCalibration(); //show calibration mark
 
-  //Show OFF instructions
-  M5.Lcd.setTextColor(CYAN);
-  M5.Lcd.setTextSize(1);
-  M5.Lcd.setCursor(85, 105);
-  M5.Lcd.printf("Off ->");
+  showRightButtonHelperText("Vib on");
 
   //Show Calibrate instructions
   M5.Lcd.setTextColor(RED);
@@ -71,40 +71,83 @@ void setup() {
 
 void loop() {
   //poll for button press
-  btnA.tick();
-  btnB.tick();
+  mainButton.tick();
+  rightButton.tick();
   
-  pressure = map(analogRead(G36), 0, 4095, 0, 127); //get reading
-  Serial.println(setpoint);
+  currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127); //get reading
+  Serial.println(minimumRequiredPressureLevel);
 
-  progressBar(pressure);  //show reading on progressbar
- 
-  if (pressure < setpoint) {
+  progressBar(currentPressureLevel);  //show reading on progressbar
+
+  if (currentPressureLevel < minimumRequiredPressureLevel) {
     setLED(true);
     M5.Lcd.pushImage(60, 15, 32, 32, thumbs_down);  // Draw icon
+
+    if (isActive) {
+      analogWrite(buzzerPin, 120);
+    }
+    else {
+      analogWrite(buzzerPin, 0);
+    }
+    
   } else {
     setLED(false);
     M5.Lcd.pushImage(60, 15, 32, 32, thumbs_up); // Draw icon
+    analogWrite(buzzerPin, 0);
   }
   
   delay(50);
 }
 
-void printPressureOnLCD(int value)
+void printpressureLevelOnLCD(int value)
 {
   M5.Lcd.setTextColor(BLUE);
   M5.Lcd.setCursor(15, 160);
   M5.Lcd.fillRect(0,0,240,20,0); 
   M5.Lcd.printf("%03d",value);
 }
-void btnBClick()
+void rightButtonClick()
 {
-  M5.Axp.PowerOff();
+  switchMode();
 }
 
-void btnAClick()
+void switchMode()
 {
-  updateCalibration(pressure);
+  isActive = ! isActive;
+
+  M5.Lcd.setTextColor(CYAN);
+  M5.Lcd.setTextSize(1);
+  M5.Lcd.setCursor(85, 105);
+  M5.Lcd.printf("        ");
+  M5.Lcd.setCursor(85, 105);
+
+  if (isActive) {
+    showRightButtonHelperText("Vib on");
+  } else {
+    showRightButtonHelperText("Vib off");
+  }
+}
+
+void showRightButtonHelperText(String textToPrint)
+{
+  M5.Lcd.setTextColor(CYAN);
+  M5.Lcd.setTextSize(1);
+  M5.Lcd.setCursor(85, 105);
+  M5.Lcd.printf("        ");
+  M5.Lcd.setCursor(85, 105);
+
+  // TODO: use the texteToPrint variable
+  if (isActive) {
+    M5.Lcd.printf("Vib on");
+  } else {
+    M5.Lcd.printf("Vib off");
+  }
+  
+}
+
+void mainButtonClick()
+{
+  updateCalibration(currentPressureLevel);
 }
 
 float getPercentError(float approx, float exact)
@@ -117,20 +160,20 @@ void updateCalibration(int value)
   EEPROM.write(0, value);  // save in EEPROM
   EEPROM.commit();
   // clear old line
-  M5.Lcd.drawLine(shiftX+1, 15+(127-setpoint), shiftX+4, 15+(127-setpoint), BLACK);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-setpoint), shiftX+29, 15+(127-setpoint), BLACK);
+  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), BLACK);
+  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), BLACK);
   // set new line
-  setpoint = value; //set global
-  M5.Lcd.drawLine(shiftX+1, 15+(127-setpoint), shiftX+4, 15+(127-setpoint), 0x7bef);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-setpoint), shiftX+29, 15+(127-setpoint), 0x7bef);
+  minimumRequiredPressureLevel = value; //set global
+  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), 0x7bef);
 }
 
 void getCalibration()
 {
-  setpoint = EEPROM.read(0);  // retrieve calibration in EEPROM
+  minimumRequiredPressureLevel = EEPROM.read(0);  // retrieve calibration in EEPROM
   // set new line
-  M5.Lcd.drawLine(shiftX+1, 15+(127-setpoint), shiftX+4, 15+(127-setpoint), 0x7bef);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-setpoint), shiftX+29, 15+(127-setpoint), 0x7bef);
+  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), 0x7bef);
 }
 
 void setLED(bool isON)
@@ -149,7 +192,7 @@ void progressBar(int value)
   }
   // print numeric value below the progress bar
   M5.Lcd.fillRect(shiftX+5,160,50,10,0);
-  M5.Lcd.drawNumber(pressure, shiftX+5, 160);
+  M5.Lcd.drawNumber(currentPressureLevel, shiftX+5, 160);
 }
 
 unsigned int rainbow(int value)
