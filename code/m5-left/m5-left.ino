@@ -25,20 +25,24 @@
 // http://rinkydinkelectronics.com/_t_doimageconverter565.php
 
 #define EEPROM_SIZE 1
-bool isActive = true;
+float errorThreshold = 6.0; //printbed is considered leveled if error goes below this (ideally 5.0-8.0)
 
-int ledPin = G10;
-int buzzerPin = 33;
+bool vibrationModeEnabled = true;
+bool rightHandIsHold = false;
+
 int currentPressureLevel = 0;
 int minimumRequiredPressureLevel = 20;
-float errorThreshold = 6.0; //printbed is considered leveled if error goes below this (ideally 5.0-8.0)
+
+int ledPin = G10;
+int mainButtonPin = G37;
+int rightButtonPin = G39;
+int buzzerPin = 33;
 
 int shiftX = 10;
 int shiftY = 10;
 
-//Object initialization
-OneButton mainButton(G37, true);
-OneButton rightButton(G39, true);
+OneButton mainButton(mainButtonPin, true);
+OneButton rightButton(rightButtonPin, true);
 
 void setup() {
   M5.begin();
@@ -58,7 +62,7 @@ void setup() {
   M5.Lcd.drawRect(shiftX+5, 12, 21, 133, 0x7bef);  //show frame for progressbar
   getCalibration(); //show calibration mark
 
-  showRightButtonHelperText("Vib on");
+  showRightButtonHelperText("Vib off ->");
 
   //Show Calibrate instructions
   M5.Lcd.setTextColor(RED);
@@ -70,20 +74,19 @@ void setup() {
 }
 
 void loop() {
-  //poll for button press
   mainButton.tick();
   rightButton.tick();
   
-  currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127); //get reading
+  currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127);
   Serial.println(minimumRequiredPressureLevel);
 
-  progressBar(currentPressureLevel);  //show reading on progressbar
+  progressBar(currentPressureLevel);
 
   if (currentPressureLevel < minimumRequiredPressureLevel) {
     setLED(true);
     M5.Lcd.pushImage(60, 15, 32, 32, thumbs_down);  // Draw icon
 
-    if (isActive) {
+    if (vibrationModeEnabled) {
       analogWrite(buzzerPin, 120);
     }
     else {
@@ -108,41 +111,32 @@ void printpressureLevelOnLCD(int value)
 }
 void rightButtonClick()
 {
-  switchMode();
+  switchVibrationMode();
 }
 
-void switchMode()
+void switchVibrationMode()
 {
-  isActive = ! isActive;
-
-  M5.Lcd.setTextColor(CYAN);
-  M5.Lcd.setTextSize(1);
-  M5.Lcd.setCursor(85, 105);
-  M5.Lcd.printf("        ");
-  M5.Lcd.setCursor(85, 105);
-
-  if (isActive) {
-    showRightButtonHelperText("Vib on");
+  vibrationModeEnabled = ! vibrationModeEnabled;
+  if (vibrationModeEnabled) {
+    showRightButtonHelperText("Vib off ->");
   } else {
-    showRightButtonHelperText("Vib off");
+    showRightButtonHelperText("Vib on ->");
   }
 }
 
-void showRightButtonHelperText(String textToPrint)
+void switchRightHandHolding()
+{
+  rightHandIsHold = ! rightHandIsHold;
+}
+
+void showRightButtonHelperText(const char* textToPrint)
 {
   M5.Lcd.setTextColor(CYAN);
   M5.Lcd.setTextSize(1);
-  M5.Lcd.setCursor(85, 105);
-  M5.Lcd.printf("        ");
-  M5.Lcd.setCursor(85, 105);
-
-  // TODO: use the texteToPrint variable
-  if (isActive) {
-    M5.Lcd.printf("Vib on");
-  } else {
-    M5.Lcd.printf("Vib off");
-  }
-  
+  M5.Lcd.setCursor(75, 105);
+  M5.Lcd.fillRect(70, 100, 70, 20, BLACK);
+  M5.Lcd.setCursor(75, 105);
+  M5.Lcd.printf(textToPrint);
 }
 
 void mainButtonClick()
