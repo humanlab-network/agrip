@@ -38,8 +38,10 @@ int ledPin = G10;
 int mainButtonPin = G37;
 int rightButtonPin = G39;
 int leftButtonPin = 35;
-int buzzerPin = 33;
+int vibrationPin = 33;
+int buzzerPin = G0;
 
+// Global display shift from borders
 int shiftX = 10;
 int shiftY = 10;
 
@@ -51,6 +53,7 @@ void setup() {
   M5.begin();
   Serial.begin(115200);       //Initialize Serial
   pinMode(ledPin, OUTPUT);    //Set up LED
+  pinMode(vibrationPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
   digitalWrite (ledPin, HIGH); // turn off the LED
 
@@ -94,17 +97,20 @@ void loop() {
     setLED(true);
     M5.Lcd.pushImage(60, 15, 32, 32, thumbs_down);  // Draw icon
 
-    if (vibrationModeEnabled) {
-      analogWrite(buzzerPin, 120);
+    if (vibrationModeEnabled && isRightHandHold()) {
+      analogWrite(vibrationPin, 120);
+      digitalWrite (buzzerPin, HIGH);
     }
     else {
-      analogWrite(buzzerPin, 0);
+      analogWrite(vibrationPin, 0);
+      digitalWrite (buzzerPin, LOW);
     }
     
   } else {
     setLED(false);
     M5.Lcd.pushImage(60, 15, 32, 32, thumbs_up); // Draw icon
-    analogWrite(buzzerPin, 0);
+    analogWrite(vibrationPin, 0);
+    digitalWrite (buzzerPin, LOW);
   }
   
   delay(50);
