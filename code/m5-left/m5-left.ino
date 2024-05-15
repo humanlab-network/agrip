@@ -1,13 +1,4 @@
-/* 3D Printer Bed Leveler
- * Copyright (C) 2022 by Dominick Lee (http://dominicklee.com)
- *
- * See https://www.instructables.com/3D-Print-Bed-Leveling-Tool-Using-M5StickC/
- * 
- * Last Modified Jun, 2022.
- * This program is free software: you can use it, redistribute it, or modify
- * it under the terms of the MIT license (See LICENSE file for details).
- * The above copyright notice and this permission notice shall be included 
- * in all copies or substantial portions of the Software.
+/* A'Grip - Fabrikarium - Humanlab Saint-Pierre - 2024
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
  * IMPLIED.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR 
@@ -89,6 +80,7 @@ void loop() {
   showRighHandHoldStatus();
   showRightHandDetectionType();
   showVibrationMode();
+  showBatteryLevel();
   
   currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127);
   Serial.println(minimumRequiredPressureLevel);
@@ -200,6 +192,29 @@ void showRighHandHoldStatus()
     M5.Lcd.setTextColor(RED);
     M5.Lcd.printf("RH NOT OK");
   }
+}
+
+void showBatteryLevel()
+{
+  M5.Lcd.setTextColor(CYAN);
+  M5.Lcd.setTextSize(1);
+
+  // Draw a rectangle to erase previous text
+  M5.Lcd.setCursor(70, 200);
+  M5.Lcd.fillRect(70, 200, 40, 20, BLACK);
+
+  M5.Lcd.setCursor(70, 200);
+ 
+  M5.Display.printf("Bat %d %%", getBatteryLevel());
+}
+
+int getBatteryLevel()
+{
+  float batteryPercentage = map(M5.Power.getBatteryVoltage(), 3000, 4200, 0, 100);
+  if (batteryPercentage > 100) batteryPercentage = 100;
+  if (batteryPercentage < 0) batteryPercentage = 0;
+
+  return (int) batteryPercentage;
 }
 
 bool isRightHandHold() {
