@@ -29,6 +29,7 @@ float errorThreshold = 6.0; //printbed is considered leveled if error goes below
 
 bool vibrationModeEnabled = true;
 bool rightHandIsHold = false;
+bool rightHandDetectionUsesBluetooth = true;
 
 int currentPressureLevel = 0;
 int minimumRequiredPressureLevel = 20;
@@ -36,6 +37,7 @@ int minimumRequiredPressureLevel = 20;
 int ledPin = G10;
 int mainButtonPin = G37;
 int rightButtonPin = G39;
+int leftButtonPin = 35;
 int buzzerPin = 33;
 
 int shiftX = 10;
@@ -43,6 +45,7 @@ int shiftY = 10;
 
 OneButton mainButton(mainButtonPin, true);
 OneButton rightButton(rightButtonPin, true);
+OneButton leftButton(leftButtonPin, true);
 
 void setup() {
   M5.begin();
@@ -56,13 +59,13 @@ void setup() {
 
   mainButton.attachClick(mainButtonClick);
   mainButton.setDebounceMs(40);
+  leftButton.attachClick(leftButtonClick);
+  leftButton.setDebounceMs(40);
   rightButton.attachClick(rightButtonClick);
   rightButton.setDebounceMs(25);
   
   M5.Lcd.drawRect(shiftX+5, 12, 21, 133, 0x7bef);  //show frame for progressbar
   getCalibration(); //show calibration mark
-
-  showRightButtonHelperText("Vib off ->");
 
   //Show Calibrate instructions
   M5.Lcd.setTextColor(RED);
@@ -76,6 +79,11 @@ void setup() {
 void loop() {
   mainButton.tick();
   rightButton.tick();
+  leftButton.tick();
+
+  showRighHandHoldStatus();
+  showRightHandDetectionType();
+  showVibrationMode();
   
   currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127);
   Serial.println(minimumRequiredPressureLevel);
@@ -109,39 +117,89 @@ void printpressureLevelOnLCD(int value)
   M5.Lcd.fillRect(0,0,240,20,0); 
   M5.Lcd.printf("%03d",value);
 }
+
+
+/*
+ * BUTTON CLICK HANDLERS
+ */
+void mainButtonClick()
+{
+  updateCalibration(currentPressureLevel);
+}
+
 void rightButtonClick()
+{
+  switchRightHandDetectionMode();
+}
+
+void leftButtonClick()
 {
   switchVibrationMode();
 }
 
+
 void switchVibrationMode()
 {
   vibrationModeEnabled = ! vibrationModeEnabled;
-  if (vibrationModeEnabled) {
-    showRightButtonHelperText("Vib off ->");
-  } else {
-    showRightButtonHelperText("Vib on ->");
-  }
 }
 
-void switchRightHandHolding()
+void switchRightHandDetectionMode()
 {
-  rightHandIsHold = ! rightHandIsHold;
+  rightHandDetectionUsesBluetooth = ! rightHandDetectionUsesBluetooth;
 }
 
-void showRightButtonHelperText(const char* textToPrint)
+void setRightHandHoldStatus(bool status)
+{
+  rightHandIsHold = status;
+}
+
+void showRightHandDetectionType()
 {
   M5.Lcd.setTextColor(CYAN);
   M5.Lcd.setTextSize(1);
+
+  // Draw a rectangle to erase previous text
   M5.Lcd.setCursor(75, 105);
   M5.Lcd.fillRect(70, 100, 70, 20, BLACK);
+
   M5.Lcd.setCursor(75, 105);
-  M5.Lcd.printf(textToPrint);
+  M5.Lcd.printf(rightHandDetectionUsesBluetooth ? "RH manual" : "RH auto");
 }
 
-void mainButtonClick()
+void showVibrationMode()
 {
-  updateCalibration(currentPressureLevel);
+  M5.Lcd.setTextColor(CYAN);
+  M5.Lcd.setTextSize(1);
+
+  // Draw a rectangle to erase previous text
+  M5.Lcd.setCursor(10, 200);
+  M5.Lcd.fillRect(10, 200, 70, 20, BLACK);
+
+  M5.Lcd.setCursor(10, 200);
+  M5.Lcd.printf(vibrationModeEnabled ? "Vib on" : "Vib off");
+}
+
+void showRighHandHoldStatus()
+{
+  M5.Lcd.setTextColor(CYAN);
+  M5.Lcd.setTextSize(1);
+
+  // Draw a rectangle to erase previous text
+  M5.Lcd.setCursor(75, 135);
+  M5.Lcd.fillRect(70, 130, 70, 20, BLACK);
+
+  M5.Lcd.setCursor(75, 135);
+  if (isRightHandHold()) {
+    M5.Lcd.setTextColor(GREEN);
+    M5.Lcd.printf("RH OK");
+  } else {
+    M5.Lcd.setTextColor(RED);
+    M5.Lcd.printf("RH NOT OK");
+  }
+}
+
+bool isRightHandHold() {
+  return rightHandIsHold || ! rightHandDetectionUsesBluetooth;
 }
 
 float getPercentError(float approx, float exact)
