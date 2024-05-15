@@ -27,7 +27,6 @@
 #define EEPROM_SIZE 1
 float errorThreshold = 6.0; //printbed is considered leveled if error goes below this (ideally 5.0-8.0)
 
-bool vibrationModeEnabled = true;
 bool rightHandIsHold = false;
 bool rightHandDetectionUsesBluetooth = true;
 
@@ -40,6 +39,9 @@ int rightButtonPin = G39;
 int leftButtonPin = 35;
 int vibrationPin = 33;
 int buzzerPin = G0;
+
+int vibrationLevels[5] = {0, 120, 160, 200, 255};
+int currentVibrationLevel = 4; // 4 = maximum
 
 // Global display shift from borders
 int shiftX = 10;
@@ -71,7 +73,7 @@ void setup() {
   getCalibration(); //show calibration mark
 
   //Show Calibrate instructions
-  M5.Lcd.setTextColor(RED);
+  M5.Lcd.setTextColor(BLUE);
   M5.Lcd.setCursor(40, 230);
   M5.Lcd.printf("Calibrate");
 
@@ -97,8 +99,8 @@ void loop() {
     setLED(true);
     M5.Lcd.pushImage(60, 15, 32, 32, thumbs_down);  // Draw icon
 
-    if (vibrationModeEnabled && isRightHandHold()) {
-      analogWrite(vibrationPin, 120);
+    if (currentVibrationLevel > 0 && isRightHandHold()) {
+      analogWrite(vibrationPin, getVibrationLevelRawValue());
       digitalWrite (buzzerPin, HIGH);
     }
     else {
@@ -140,13 +142,7 @@ void rightButtonClick()
 
 void leftButtonClick()
 {
-  switchVibrationMode();
-}
-
-
-void switchVibrationMode()
-{
-  vibrationModeEnabled = ! vibrationModeEnabled;
+  increaseVibrationLevel();
 }
 
 void switchRightHandDetectionMode()
@@ -182,7 +178,9 @@ void showVibrationMode()
   M5.Lcd.fillRect(10, 200, 70, 20, BLACK);
 
   M5.Lcd.setCursor(10, 200);
-  M5.Lcd.printf(vibrationModeEnabled ? "Vib on" : "Vib off");
+
+  String message = "Vib " + String(getVibrationLevelDisplayValue());
+  M5.Lcd.printf("%s\n", message.c_str());
 }
 
 void showRighHandHoldStatus()
@@ -206,6 +204,23 @@ void showRighHandHoldStatus()
 
 bool isRightHandHold() {
   return rightHandIsHold || ! rightHandDetectionUsesBluetooth;
+}
+
+// The vibration raw value (from 0 to 255)
+int getVibrationLevelRawValue() {
+  return vibrationLevels[currentVibrationLevel];
+}
+
+// The vibration display value (0, 1, 2, 3 or 4)
+int getVibrationLevelDisplayValue() {
+  return currentVibrationLevel;
+}
+
+void increaseVibrationLevel() {
+  currentVibrationLevel ++;
+  if (currentVibrationLevel > 4) {
+    currentVibrationLevel = 0;
+  }
 }
 
 float getPercentError(float approx, float exact)
