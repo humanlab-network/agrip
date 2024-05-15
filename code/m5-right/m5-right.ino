@@ -1,13 +1,4 @@
-/* 3D Printer Bed Leveler
- * Copyright (C) 2022 by Dominick Lee (http://dominicklee.com)
- *
- * See https://www.instructables.com/3D-Print-Bed-Leveling-Tool-Using-M5StickC/
- * 
- * Last Modified Jun, 2022.
- * This program is free software: you can use it, redistribute it, or modify
- * it under the terms of the MIT license (See LICENSE file for details).
- * The above copyright notice and this permission notice shall be included 
- * in all copies or substantial portions of the Software.
+/* A'Grip - Fabrikarium - Humanlab Saint-Pierre - 2024
  * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
  * IMPLIED.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR 
@@ -21,47 +12,42 @@
 #include "thumbs-down.h"
 #include "thumbs-up.h"
 
-// Icons converted at: 
-// http://rinkydinkelectronics.com/_t_doimageconverter565.php
-
 #define EEPROM_SIZE 1
-bool isActive = true;
-
-int ledPin = G10;
-int buzzerPin = 33;
-int currentPressureLevel = 0;
-int minimumRequiredPressureLevel = 20;
 float errorThreshold = 6.0; //printbed is considered leveled if error goes below this (ideally 5.0-8.0)
 
-int shiftX = 10;
-int shiftY = 10;
+bool rightHandIsHold = false; // The right hand FSR hold status
 
-//Object initialization
-OneButton mainButton(G37, true);
-OneButton rightButton(G39, true);
+int currentPressureLevel = 0; // The left hand pressure level
+int minimumRequiredPressureLevel = 0; // Will be reset after calibration 
+
+int mainButtonPin = G37;
+int rightButtonPin = G39;
+int leftButtonPin = 35;
+
+OneButton mainButton(mainButtonPin, true);
+OneButton rightButton(rightButtonPin, true);
+OneButton leftButton(leftButtonPin, true);
 
 void setup() {
+  // Board global initialization
   M5.begin();
-  Serial.begin(115200);       //Initialize Serial
-  pinMode(ledPin, OUTPUT);    //Set up LED
-  pinMode(buzzerPin, OUTPUT);
-  digitalWrite (ledPin, HIGH); // turn off the LED
-
   M5.Lcd.setRotation(0);
   M5.Lcd.fillScreen(BLACK);
-
+  Serial.begin(115200);
+  
+  // Buttons event handlers initialization
   mainButton.attachClick(mainButtonClick);
   mainButton.setDebounceMs(40);
+  leftButton.attachClick(leftButtonClick);
+  leftButton.setDebounceMs(40);
   rightButton.attachClick(rightButtonClick);
-  rightButton.setDebounceMs(25);
+  rightButton.setDebounceMs(40);
   
-  M5.Lcd.drawRect(shiftX+5, 12, 21, 133, 0x7bef);  //show frame for progressbar
+  M5.Lcd.drawRect(15, 12, 21, 133, 0x7bef);  //show frame for progressbar
   getCalibration(); //show calibration mark
 
-  showRightButtonHelperText("Vib on");
-
   //Show Calibrate instructions
-  M5.Lcd.setTextColor(RED);
+  M5.Lcd.setTextColor(BLUE);
   M5.Lcd.setCursor(40, 230);
   M5.Lcd.printf("Calibrate");
 
@@ -70,84 +56,88 @@ void setup() {
 }
 
 void loop() {
-  //poll for button press
+  // Buttons press detection
   mainButton.tick();
   rightButton.tick();
+  leftButton.tick();
+
+  showBatteryLevel();
   
-  currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127); //get reading
+  currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127);
   Serial.println(minimumRequiredPressureLevel);
 
-  progressBar(currentPressureLevel);  //show reading on progressbar
+  progressBar(currentPressureLevel);
 
   if (currentPressureLevel < minimumRequiredPressureLevel) {
-    setLED(true);
     M5.Lcd.pushImage(60, 15, 32, 32, thumbs_down);  // Draw icon
 
-    if (isActive) {
-      analogWrite(buzzerPin, 120);
-    }
-    else {
-      analogWrite(buzzerPin, 0);
+    if (rightHandIsHold) {
+      rightHandIsHold = false;
+
+      // TODO: Send bluetooth info
     }
     
   } else {
-    setLED(false);
     M5.Lcd.pushImage(60, 15, 32, 32, thumbs_up); // Draw icon
-    analogWrite(buzzerPin, 0);
+
+    if (!rightHandIsHold) {
+      rightHandIsHold = true;
+
+      // TODO: Send bluetooth info
+    }
   }
   
   delay(50);
 }
 
-void printpressureLevelOnLCD(int value)
+void printPressureLevelOnLCD(int value)
 {
   M5.Lcd.setTextColor(BLUE);
   M5.Lcd.setCursor(15, 160);
   M5.Lcd.fillRect(0,0,240,20,0); 
   M5.Lcd.printf("%03d",value);
 }
-void rightButtonClick()
-{
-  switchMode();
-}
 
-void switchMode()
-{
-  isActive = ! isActive;
 
-  M5.Lcd.setTextColor(CYAN);
-  M5.Lcd.setTextSize(1);
-  M5.Lcd.setCursor(85, 105);
-  M5.Lcd.printf("        ");
-  M5.Lcd.setCursor(85, 105);
-
-  if (isActive) {
-    showRightButtonHelperText("Vib on");
-  } else {
-    showRightButtonHelperText("Vib off");
-  }
-}
-
-void showRightButtonHelperText(String textToPrint)
-{
-  M5.Lcd.setTextColor(CYAN);
-  M5.Lcd.setTextSize(1);
-  M5.Lcd.setCursor(85, 105);
-  M5.Lcd.printf("        ");
-  M5.Lcd.setCursor(85, 105);
-
-  // TODO: use the texteToPrint variable
-  if (isActive) {
-    M5.Lcd.printf("Vib on");
-  } else {
-    M5.Lcd.printf("Vib off");
-  }
-  
-}
-
+/*
+ * BUTTON CLICK HANDLERS
+ */
 void mainButtonClick()
 {
   updateCalibration(currentPressureLevel);
+}
+
+void rightButtonClick()
+{
+  
+}
+
+void leftButtonClick()
+{
+  
+}
+
+void showBatteryLevel()
+{
+  M5.Lcd.setTextColor(CYAN);
+  M5.Lcd.setTextSize(1);
+
+  // Draw a rectangle to erase previous text
+  M5.Lcd.setCursor(70, 200);
+  M5.Lcd.fillRect(70, 200, 40, 20, BLACK);
+
+  M5.Lcd.setCursor(70, 200);
+ 
+  M5.Display.printf("Bat %d %%", getBatteryLevel());
+}
+
+int getBatteryLevel()
+{
+  float batteryPercentage = map(M5.Power.getBatteryVoltage(), 3000, 4200, 0, 100);
+  if (batteryPercentage > 100) batteryPercentage = 100;
+  if (batteryPercentage < 0) batteryPercentage = 0;
+
+  return (int) batteryPercentage;
 }
 
 float getPercentError(float approx, float exact)
@@ -160,39 +150,34 @@ void updateCalibration(int value)
   EEPROM.write(0, value);  // save in EEPROM
   EEPROM.commit();
   // clear old line
-  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), BLACK);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), BLACK);
+  M5.Lcd.drawLine(16, 15+(127-minimumRequiredPressureLevel), 14, 15+(127-minimumRequiredPressureLevel), BLACK);
+  M5.Lcd.drawLine(36, 15+(127-minimumRequiredPressureLevel), 39, 15+(127-minimumRequiredPressureLevel), BLACK);
   // set new line
   minimumRequiredPressureLevel = value; //set global
-  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), 0x7bef);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(11, 15+(127-minimumRequiredPressureLevel), 14, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(36, 15+(127-minimumRequiredPressureLevel), 39, 15+(127-minimumRequiredPressureLevel), 0x7bef);
 }
 
 void getCalibration()
 {
   minimumRequiredPressureLevel = EEPROM.read(0);  // retrieve calibration in EEPROM
   // set new line
-  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), 0x7bef);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), 0x7bef);
-}
-
-void setLED(bool isON)
-{
-  digitalWrite (ledPin, !isON); // set the LED
+  M5.Lcd.drawLine(11, 15+(127-minimumRequiredPressureLevel), 14, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(36, 15+(127-minimumRequiredPressureLevel), 39, 15+(127-minimumRequiredPressureLevel), 0x7bef);
 }
 
 void progressBar(int value)
 {
   // Value is expected to be in range 0-127
   for (int i = 0; i <= value; i++) {  //draw bar
-    M5.Lcd.fillRect(shiftX+8, 142-i, 15, 1, rainbow(i));
+    M5.Lcd.fillRect(18, 142-i, 15, 1, rainbow(i));
   }
   for (int i = value+1; i <= 128; i++) {  //clear old stuff
-    M5.Lcd.fillRect(shiftX+8, 142-i, 15, 1, BLACK);
+    M5.Lcd.fillRect(18, 142-i, 15, 1, BLACK);
   }
   // print numeric value below the progress bar
-  M5.Lcd.fillRect(shiftX+5,160,50,10,0);
-  M5.Lcd.drawNumber(currentPressureLevel, shiftX+5, 160);
+  M5.Lcd.fillRect(15,160,50,10,0);
+  M5.Lcd.drawNumber(currentPressureLevel, 15, 160);
 }
 
 unsigned int rainbow(int value)
