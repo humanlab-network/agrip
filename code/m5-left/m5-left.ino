@@ -18,11 +18,11 @@
 #define EEPROM_SIZE 1
 float errorThreshold = 6.0; //printbed is considered leveled if error goes below this (ideally 5.0-8.0)
 
-bool rightHandIsHold = false;
-bool rightHandDetectionUsesBluetooth = true;
+bool rightHandIsHold = false; // The right hand FSR hold status
+bool rightHandDetectionUsesBluetooth = true; // When true, the left hand state is only checked when right hand is hold too
 
-int currentPressureLevel = 0;
-int minimumRequiredPressureLevel = 20;
+int currentPressureLevel = 0; // The left hand pressure level
+int minimumRequiredPressureLevel = 0; // Will be reset after calibration 
 
 int ledPin = G10;
 int mainButtonPin = G37;
@@ -31,36 +31,37 @@ int leftButtonPin = 35;
 int vibrationPin = 33;
 int buzzerPin = G0;
 
+// The 5 vibration step levels from disabled to max
 int vibrationLevels[5] = {0, 120, 160, 200, 255};
 int currentVibrationLevel = 4; // 4 = maximum
-
-// Global display shift from borders
-int shiftX = 10;
-int shiftY = 10;
 
 OneButton mainButton(mainButtonPin, true);
 OneButton rightButton(rightButtonPin, true);
 OneButton leftButton(leftButtonPin, true);
 
 void setup() {
+  // Board global initialization
   M5.begin();
-  Serial.begin(115200);       //Initialize Serial
+  M5.Lcd.setRotation(0);
+  M5.Lcd.fillScreen(BLACK);
+  Serial.begin(115200);
+
+  // Pins initialization
   pinMode(ledPin, OUTPUT);    //Set up LED
   pinMode(vibrationPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
-  digitalWrite (ledPin, HIGH); // turn off the LED
 
-  M5.Lcd.setRotation(0);
-  M5.Lcd.fillScreen(BLACK);
-
+  digitalWrite (ledPin, HIGH);
+  
+  // Buttons event handlers initialization
   mainButton.attachClick(mainButtonClick);
   mainButton.setDebounceMs(40);
   leftButton.attachClick(leftButtonClick);
   leftButton.setDebounceMs(40);
   rightButton.attachClick(rightButtonClick);
-  rightButton.setDebounceMs(25);
+  rightButton.setDebounceMs(40);
   
-  M5.Lcd.drawRect(shiftX+5, 12, 21, 133, 0x7bef);  //show frame for progressbar
+  M5.Lcd.drawRect(15, 12, 21, 133, 0x7bef);  //show frame for progressbar
   getCalibration(); //show calibration mark
 
   //Show Calibrate instructions
@@ -73,6 +74,7 @@ void setup() {
 }
 
 void loop() {
+  // Buttons press detection
   mainButton.tick();
   rightButton.tick();
   leftButton.tick();
@@ -110,7 +112,7 @@ void loop() {
   delay(50);
 }
 
-void printpressureLevelOnLCD(int value)
+void printPressureLevelOnLCD(int value)
 {
   M5.Lcd.setTextColor(BLUE);
   M5.Lcd.setCursor(15, 160);
@@ -248,20 +250,20 @@ void updateCalibration(int value)
   EEPROM.write(0, value);  // save in EEPROM
   EEPROM.commit();
   // clear old line
-  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), BLACK);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), BLACK);
+  M5.Lcd.drawLine(16, 15+(127-minimumRequiredPressureLevel), 14, 15+(127-minimumRequiredPressureLevel), BLACK);
+  M5.Lcd.drawLine(36, 15+(127-minimumRequiredPressureLevel), 39, 15+(127-minimumRequiredPressureLevel), BLACK);
   // set new line
   minimumRequiredPressureLevel = value; //set global
-  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), 0x7bef);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(11, 15+(127-minimumRequiredPressureLevel), 14, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(36, 15+(127-minimumRequiredPressureLevel), 39, 15+(127-minimumRequiredPressureLevel), 0x7bef);
 }
 
 void getCalibration()
 {
   minimumRequiredPressureLevel = EEPROM.read(0);  // retrieve calibration in EEPROM
   // set new line
-  M5.Lcd.drawLine(shiftX+1, 15+(127-minimumRequiredPressureLevel), shiftX+4, 15+(127-minimumRequiredPressureLevel), 0x7bef);
-  M5.Lcd.drawLine(shiftX+26, 15+(127-minimumRequiredPressureLevel), shiftX+29, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(11, 15+(127-minimumRequiredPressureLevel), 14, 15+(127-minimumRequiredPressureLevel), 0x7bef);
+  M5.Lcd.drawLine(36, 15+(127-minimumRequiredPressureLevel), 39, 15+(127-minimumRequiredPressureLevel), 0x7bef);
 }
 
 void setLED(bool isON)
@@ -273,14 +275,14 @@ void progressBar(int value)
 {
   // Value is expected to be in range 0-127
   for (int i = 0; i <= value; i++) {  //draw bar
-    M5.Lcd.fillRect(shiftX+8, 142-i, 15, 1, rainbow(i));
+    M5.Lcd.fillRect(18, 142-i, 15, 1, rainbow(i));
   }
   for (int i = value+1; i <= 128; i++) {  //clear old stuff
-    M5.Lcd.fillRect(shiftX+8, 142-i, 15, 1, BLACK);
+    M5.Lcd.fillRect(18, 142-i, 15, 1, BLACK);
   }
   // print numeric value below the progress bar
-  M5.Lcd.fillRect(shiftX+5,160,50,10,0);
-  M5.Lcd.drawNumber(currentPressureLevel, shiftX+5, 160);
+  M5.Lcd.fillRect(15,160,50,10,0);
+  M5.Lcd.drawNumber(currentPressureLevel, 15, 160);
 }
 
 unsigned int rainbow(int value)
