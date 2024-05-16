@@ -89,7 +89,7 @@ void loop() {
   showRighHandHoldStatus();
 
   if (usesDuoMode) {
-    rightHandIsHold = digitalRead(rightHandIsHold);
+    rightHandIsHold = digitalRead(rightHandPin);
   }
   
   currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127);
@@ -214,9 +214,9 @@ void showVersionNumber()
   M5.Lcd.setTextSize(1);
 
   // Draw a rectangle to erase previous text
-  M5.Lcd.setCursor(60, 2);
+  M5.Lcd.setCursor(40, 2);
 
-  M5.Lcd.printf("Ver. L%s\n", versionNumber.c_str());
+  M5.Lcd.printf("Ver. Left %s\n", versionNumber.c_str());
 }
 
 int getBatteryLevel()

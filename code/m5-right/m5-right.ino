@@ -76,20 +76,20 @@ void loop() {
 
   if (currentPressureLevel < minimumRequiredPressureLevel) {
     M5.Lcd.pushImage(60, 25, 32, 32, thumbs_down);  // Draw icon
+    digitalWrite(rightHandPin, LOW);
 
     if (rightHandIsHold) {
       rightHandIsHold = false;
 
-      digitalWrite(rightHandPin, LOW);
+      
     }
     
   } else {
     M5.Lcd.pushImage(60, 25, 32, 32, thumbs_up); // Draw icon
-
+    digitalWrite(rightHandPin, HIGH);
+      
     if (!rightHandIsHold) {
       rightHandIsHold = true;
-
-      digitalWrite(rightHandPin, HIGH);
     }
   }
   
@@ -102,9 +102,9 @@ void showVersionNumber()
   M5.Lcd.setTextSize(1);
 
   // Draw a rectangle to erase previous text
-  M5.Lcd.setCursor(60, 2);
+  M5.Lcd.setCursor(35, 2);
 
-  M5.Lcd.printf("Ver. R%s\n", versionNumber.c_str());
+  M5.Lcd.printf("Ver. Right %s\n", versionNumber.c_str());
 }
 
 
