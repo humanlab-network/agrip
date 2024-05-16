@@ -16,10 +16,11 @@
 // http://rinkydinkelectronics.com/_t_doimageconverter565.php
 
 #define EEPROM_SIZE 1
+String versionNumber = "1.0.0";
 float errorThreshold = 6.0; //printbed is considered leveled if error goes below this (ideally 5.0-8.0)
 
 bool rightHandIsHold = false; // The right hand FSR hold status
-bool rightHandDetectionUsesBluetooth = true; // When true, the left hand state is only checked when right hand is hold too
+bool usesDuoMode = false; // When true, the left hand state is only checked when right hand is hold too
 
 int currentPressureLevel = 0; // The left hand pressure level
 int minimumRequiredPressureLevel = 0; // Will be reset after calibration 
@@ -29,11 +30,11 @@ int mainButtonPin = G37;
 int rightButtonPin = G39;
 int leftButtonPin = 35;
 int vibrationPin = 33;
-int buzzerPin = G0;
+int rightHandPin = G26;
 
 // The 5 vibration step levels from disabled to max
 int vibrationLevels[5] = {0, 120, 160, 200, 255};
-int currentVibrationLevel = 4; // 4 = maximum
+int currentVibrationLevel = 0; // 4 = maximum
 
 OneButton mainButton(mainButtonPin, true);
 OneButton rightButton(rightButtonPin, true);
@@ -49,9 +50,10 @@ void setup() {
   // Pins initialization
   pinMode(ledPin, OUTPUT);    //Set up LED
   pinMode(vibrationPin, OUTPUT);
-  pinMode(buzzerPin, OUTPUT);
+  pinMode(rightHandPin, INPUT);
 
   digitalWrite (ledPin, HIGH);
+  
   
   // Buttons event handlers initialization
   mainButton.attachClick(mainButtonClick);
@@ -71,6 +73,8 @@ void setup() {
 
   // Swap the colour byte order when rendering
   M5.Lcd.setSwapBytes(true);
+
+  showVersionNumber();
 }
 
 void loop() {
@@ -78,11 +82,15 @@ void loop() {
   mainButton.tick();
   rightButton.tick();
   leftButton.tick();
-
-  showRighHandHoldStatus();
+  
   showRightHandDetectionType();
   showVibrationMode();
   showBatteryLevel();
+  showRighHandHoldStatus();
+
+  if (usesDuoMode) {
+    rightHandIsHold = digitalRead(rightHandIsHold);
+  }
   
   currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127);
   Serial.println(minimumRequiredPressureLevel);
@@ -91,35 +99,23 @@ void loop() {
 
   if (currentPressureLevel < minimumRequiredPressureLevel) {
     setLED(true);
-    M5.Lcd.pushImage(60, 15, 32, 32, thumbs_down);  // Draw icon
+    M5.Lcd.pushImage(60, 25, 32, 32, thumbs_down);  // Draw icon
 
     if (currentVibrationLevel > 0 && isRightHandHold()) {
       analogWrite(vibrationPin, getVibrationLevelRawValue());
-      digitalWrite (buzzerPin, HIGH);
     }
     else {
       analogWrite(vibrationPin, 0);
-      digitalWrite (buzzerPin, LOW);
     }
     
   } else {
     setLED(false);
-    M5.Lcd.pushImage(60, 15, 32, 32, thumbs_up); // Draw icon
+    M5.Lcd.pushImage(60, 25, 32, 32, thumbs_up); // Draw icon
     analogWrite(vibrationPin, 0);
-    digitalWrite (buzzerPin, LOW);
   }
   
   delay(50);
 }
-
-void printPressureLevelOnLCD(int value)
-{
-  M5.Lcd.setTextColor(BLUE);
-  M5.Lcd.setCursor(15, 160);
-  M5.Lcd.fillRect(0,0,240,20,0); 
-  M5.Lcd.printf("%03d",value);
-}
-
 
 /*
  * BUTTON CLICK HANDLERS
@@ -141,7 +137,7 @@ void leftButtonClick()
 
 void switchRightHandDetectionMode()
 {
-  rightHandDetectionUsesBluetooth = ! rightHandDetectionUsesBluetooth;
+  usesDuoMode = ! usesDuoMode;
 }
 
 void setRightHandHoldStatus(bool status)
@@ -155,11 +151,11 @@ void showRightHandDetectionType()
   M5.Lcd.setTextSize(1);
 
   // Draw a rectangle to erase previous text
-  M5.Lcd.setCursor(75, 105);
-  M5.Lcd.fillRect(70, 100, 70, 20, BLACK);
+  M5.Lcd.setCursor(65, 105);
+  M5.Lcd.fillRect(60, 100, 70, 20, BLACK);
 
-  M5.Lcd.setCursor(75, 105);
-  M5.Lcd.printf(rightHandDetectionUsesBluetooth ? "RH manual" : "RH auto");
+  M5.Lcd.setCursor(65, 105);
+  M5.Lcd.printf(usesDuoMode ? "DUO" : "SOLO");
 }
 
 void showVibrationMode()
@@ -183,16 +179,18 @@ void showRighHandHoldStatus()
   M5.Lcd.setTextSize(1);
 
   // Draw a rectangle to erase previous text
-  M5.Lcd.setCursor(75, 135);
-  M5.Lcd.fillRect(70, 130, 70, 20, BLACK);
+  M5.Lcd.setCursor(65, 135);
+  M5.Lcd.fillRect(60, 130, 70, 20, BLACK);
 
-  M5.Lcd.setCursor(75, 135);
-  if (isRightHandHold()) {
-    M5.Lcd.setTextColor(GREEN);
-    M5.Lcd.printf("RH OK");
-  } else {
-    M5.Lcd.setTextColor(RED);
-    M5.Lcd.printf("RH NOT OK");
+  if (usesDuoMode) {
+    M5.Lcd.setCursor(65, 135);
+    if (isRightHandHold()) {
+      M5.Lcd.setTextColor(GREEN);
+      M5.Lcd.printf("PRESSED");
+    } else {
+      M5.Lcd.setTextColor(RED);
+      M5.Lcd.printf("NOT PRESS.");
+    }
   }
 }
 
@@ -210,6 +208,17 @@ void showBatteryLevel()
   M5.Display.printf("Bat %d %%", getBatteryLevel());
 }
 
+void showVersionNumber()
+{
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setTextSize(1);
+
+  // Draw a rectangle to erase previous text
+  M5.Lcd.setCursor(60, 2);
+
+  M5.Lcd.printf("Ver. L%s\n", versionNumber.c_str());
+}
+
 int getBatteryLevel()
 {
   float batteryPercentage = map(M5.Power.getBatteryVoltage(), 3000, 4200, 0, 100);
@@ -220,7 +229,7 @@ int getBatteryLevel()
 }
 
 bool isRightHandHold() {
-  return rightHandIsHold || ! rightHandDetectionUsesBluetooth;
+  return rightHandIsHold || ! usesDuoMode;
 }
 
 // The vibration raw value (from 0 to 255)
@@ -281,8 +290,9 @@ void progressBar(int value)
     M5.Lcd.fillRect(18, 142-i, 15, 1, BLACK);
   }
   // print numeric value below the progress bar
-  M5.Lcd.fillRect(15,160,50,10,0);
-  M5.Lcd.drawNumber(currentPressureLevel, 15, 160);
+  M5.Lcd.setTextColor(CYAN);
+  M5.Lcd.fillRect(25,160,50,10,0);
+  M5.Lcd.drawNumber(currentPressureLevel, 25, 160);
 }
 
 unsigned int rainbow(int value)

@@ -13,6 +13,7 @@
 #include "thumbs-up.h"
 
 #define EEPROM_SIZE 1
+String versionNumber = "1.0.0";
 float errorThreshold = 6.0; //printbed is considered leveled if error goes below this (ideally 5.0-8.0)
 
 bool rightHandIsHold = false; // The right hand FSR hold status
@@ -23,6 +24,7 @@ int minimumRequiredPressureLevel = 0; // Will be reset after calibration
 int mainButtonPin = G37;
 int rightButtonPin = G39;
 int leftButtonPin = 35;
+int rightHandPin = G26;
 
 OneButton mainButton(mainButtonPin, true);
 OneButton rightButton(rightButtonPin, true);
@@ -42,6 +44,8 @@ void setup() {
   leftButton.setDebounceMs(40);
   rightButton.attachClick(rightButtonClick);
   rightButton.setDebounceMs(40);
+
+  pinMode(rightHandPin, OUTPUT);
   
   M5.Lcd.drawRect(15, 12, 21, 133, 0x7bef);  //show frame for progressbar
   getCalibration(); //show calibration mark
@@ -53,6 +57,8 @@ void setup() {
 
   // Swap the colour byte order when rendering
   M5.Lcd.setSwapBytes(true);
+
+  showVersionNumber();
 }
 
 void loop() {
@@ -69,33 +75,36 @@ void loop() {
   progressBar(currentPressureLevel);
 
   if (currentPressureLevel < minimumRequiredPressureLevel) {
-    M5.Lcd.pushImage(60, 15, 32, 32, thumbs_down);  // Draw icon
+    M5.Lcd.pushImage(60, 25, 32, 32, thumbs_down);  // Draw icon
 
     if (rightHandIsHold) {
       rightHandIsHold = false;
 
-      // TODO: Send bluetooth info
+      digitalWrite(rightHandPin, LOW);
     }
     
   } else {
-    M5.Lcd.pushImage(60, 15, 32, 32, thumbs_up); // Draw icon
+    M5.Lcd.pushImage(60, 25, 32, 32, thumbs_up); // Draw icon
 
     if (!rightHandIsHold) {
       rightHandIsHold = true;
 
-      // TODO: Send bluetooth info
+      digitalWrite(rightHandPin, HIGH);
     }
   }
   
   delay(50);
 }
 
-void printPressureLevelOnLCD(int value)
+void showVersionNumber()
 {
-  M5.Lcd.setTextColor(BLUE);
-  M5.Lcd.setCursor(15, 160);
-  M5.Lcd.fillRect(0,0,240,20,0); 
-  M5.Lcd.printf("%03d",value);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setTextSize(1);
+
+  // Draw a rectangle to erase previous text
+  M5.Lcd.setCursor(60, 2);
+
+  M5.Lcd.printf("Ver. R%s\n", versionNumber.c_str());
 }
 
 
@@ -176,8 +185,9 @@ void progressBar(int value)
     M5.Lcd.fillRect(18, 142-i, 15, 1, BLACK);
   }
   // print numeric value below the progress bar
-  M5.Lcd.fillRect(15,160,50,10,0);
-  M5.Lcd.drawNumber(currentPressureLevel, 15, 160);
+  M5.Lcd.setTextColor(CYAN);
+  M5.Lcd.fillRect(25,160,50,10,0);
+  M5.Lcd.drawNumber(currentPressureLevel, 25, 160);
 }
 
 unsigned int rainbow(int value)
