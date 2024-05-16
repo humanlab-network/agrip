@@ -31,6 +31,7 @@ int rightButtonPin = G39;
 int leftButtonPin = 35;
 int vibrationPin = 33;
 int rightHandPin = G26;
+int fsrPin = G36;
 
 // The 5 vibration step levels from disabled to max
 int vibrationLevels[5] = {0, 120, 160, 200, 255};
@@ -92,7 +93,7 @@ void loop() {
     rightHandIsHold = digitalRead(rightHandPin);
   }
   
-  currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127);
+  currentPressureLevel = map(analogRead(fsrPin), 0, 4095, 0, 127);
   Serial.println(minimumRequiredPressureLevel);
 
   progressBar(currentPressureLevel);

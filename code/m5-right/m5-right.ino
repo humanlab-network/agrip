@@ -25,6 +25,7 @@ int mainButtonPin = G37;
 int rightButtonPin = G39;
 int leftButtonPin = 35;
 int rightHandPin = G26;
+int fsrPin = G36;
 
 OneButton mainButton(mainButtonPin, true);
 OneButton rightButton(rightButtonPin, true);
@@ -69,7 +70,7 @@ void loop() {
 
   showBatteryLevel();
   
-  currentPressureLevel = map(analogRead(G36), 0, 4095, 0, 127);
+  currentPressureLevel = map(analogRead(fsrPin), 0, 4095, 0, 127);
   Serial.println(minimumRequiredPressureLevel);
 
   progressBar(currentPressureLevel);
