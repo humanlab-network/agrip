@@ -1,7 +1,9 @@
 # aGrip
 
 aGrip is one of the four projects of Saint-Pierre HumanLab Fabrikarium 2024. The initial goal was to help Rime, a 6-year-old young lady
-with her walking frame. Rime used to unintentionally drop her left arm from it while walking and could lose balance
+with her walking frame. Rime used to unintentionally drop her left arm from it while walking and could lose balance.
+
+See: <https://wikilab.myhumankit.org/index.php?title=Projets:A'Grip>
 
 The technical solution the team retained is to use an M5 Stick with a Force Sensitive Resistor sensor (FSR) to send a buzzer signal
 when the left-hand pressure is not strong enough.
